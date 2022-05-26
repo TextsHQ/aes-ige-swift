@@ -13,7 +13,7 @@ public final class AESIGE {
 
 extension AESIGE {
     public func decrypt(buffer: Data) throws -> Data {
-        var cryptor: CCCryptorRef?
+        var cryptorRef: CCCryptorRef?
         var status: CCCryptorStatus = 0
 
         status = CCCryptorCreate(
@@ -23,8 +23,10 @@ extension AESIGE {
             key.withUnsafeBytes { $0.baseAddress },
             key.count,
             iv.withUnsafeBytes { $0.baseAddress },
-            &cryptor
+            &cryptorRef
         )
+
+        defer { CCCryptorRelease(cryptorRef) }
 
         if status != kCCSuccess {
             throw AESIGEError.initializationError
@@ -36,7 +38,7 @@ extension AESIGE {
         var result = Data(count: buffer.count)
         var current: Data
 
-        let dataLength: size_t = CCCryptorGetOutputLength(cryptor, kCCBlockSizeAES128, false)
+        let dataLength: size_t = CCCryptorGetOutputLength(cryptorRef, kCCBlockSizeAES128, false)
 
         for i in stride(from: 0, to: buffer.count, by: 16) {
             let end = (i + 16) > buffer.count ? buffer.count : i + 16
@@ -48,7 +50,7 @@ extension AESIGE {
             var crypted = Data(count: dataLength)
 
             status = CCCryptorUpdate(
-                cryptor,
+                cryptorRef,
                 current.withUnsafeBytes { $0.baseAddress },
                 current.count,
                 crypted.withUnsafeMutableBytes { $0.baseAddress },
@@ -67,7 +69,7 @@ extension AESIGE {
             top = crypted
             bottom = buffer.subdata(in: i..<(end))
         }
-
+        
         return result
     }
 }
