@@ -29,7 +29,6 @@ extension AESIGE {
                 )
             }
         }
-        
 
         defer { CCCryptorRelease(cryptorRef) }
 
