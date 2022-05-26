@@ -69,7 +69,7 @@ extension AESIGE {
             top = crypted
             bottom = buffer.subdata(in: i..<(end))
         }
-        
+
         return result
     }
 }
