@@ -11,13 +11,11 @@ let package = Package(
             targets: ["AESIGE"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMajor(from: "1.5.1"))
     ],
     targets: [
         .target(
             name: "AESIGE",
             dependencies: [
-                "CryptoSwift"
             ]
         ),
         .testTarget(

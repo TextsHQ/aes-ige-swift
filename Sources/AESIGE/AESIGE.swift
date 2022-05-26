@@ -1,5 +1,5 @@
 import Foundation
-import CryptoSwift
+import CommonCrypto
 
 public final class AESIGE {
     private var iv: Data
@@ -13,14 +13,30 @@ public final class AESIGE {
 
 extension AESIGE {
     public func decrypt(buffer: Data) throws -> Data {
-        var aes = try AES(key: key.bytes, blockMode: ECB())
-            .makeDecryptor()
+        var cryptor: CCCryptorRef?
+        var status: CCCryptorStatus = 0
+
+        status = CCCryptorCreate(
+            CCOperation(kCCDecrypt),
+            CCAlgorithm(kCCAlgorithmAES),
+            CCOptions(kCCOptionECBMode),
+            key.withUnsafeBytes { $0.baseAddress },
+            key.count,
+            iv.withUnsafeBytes { $0.baseAddress },
+            &cryptor
+        )
+
+        if status != kCCSuccess {
+            throw AESIGEError.initializationError
+        }
 
         var top = iv.subdata(in: 16..<32)
         var bottom = iv.subdata(in: 0..<16)
 
         var result = Data(count: buffer.count)
         var current: Data
+
+        let dataLength: size_t = CCCryptorGetOutputLength(cryptor, kCCBlockSizeAES128, false)
 
         for i in stride(from: 0, to: buffer.count, by: 16) {
             let end = (i + 16) > buffer.count ? buffer.count : i + 16
@@ -29,7 +45,20 @@ extension AESIGE {
 
             xor(&current, top)
 
-            var crypted = Data(try aes.update(withBytes: current.bytes))
+            var crypted = Data(count: dataLength)
+
+            status = CCCryptorUpdate(
+                cryptor,
+                current.withUnsafeBytes { $0.baseAddress },
+                current.count,
+                crypted.withUnsafeMutableBytes { $0.baseAddress },
+                dataLength,
+                nil
+            )
+
+            if status != kCCSuccess {
+                throw AESIGEError.decryptionError
+            }
 
             xor(&crypted, bottom)
 
