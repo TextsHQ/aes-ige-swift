@@ -14,17 +14,22 @@ public final class AESIGE {
 extension AESIGE {
     public func decrypt(buffer: Data) throws -> Data {
         var cryptorRef: CCCryptorRef?
-        var status: CCCryptorStatus = 0
+        var status: CCCryptorStatus = -1
 
-        status = CCCryptorCreate(
-            CCOperation(kCCDecrypt),
-            CCAlgorithm(kCCAlgorithmAES),
-            CCOptions(kCCOptionECBMode),
-            key.withUnsafeBytes { $0.baseAddress },
-            key.count,
-            iv.withUnsafeBytes { $0.baseAddress },
-            &cryptorRef
-        )
+        key.withUnsafeBytes { keyBytes in
+            iv.withUnsafeBytes { ivBytes in
+                status = CCCryptorCreate(
+                    CCOperation(kCCDecrypt),
+                    CCAlgorithm(kCCAlgorithmAES),
+                    CCOptions(kCCOptionECBMode),
+                    keyBytes.baseAddress,
+                    key.count,
+                    ivBytes.baseAddress,
+                    &cryptorRef
+                )
+            }
+        }
+        
 
         defer { CCCryptorRelease(cryptorRef) }
 
@@ -49,19 +54,17 @@ extension AESIGE {
 
             var crypted = Data(count: dataLength)
 
-            current.withUnsafeBytes { bytes in
-                var data = [UInt8](repeating: 0, count: dataLength)
-
-                status = CCCryptorUpdate(
-                    cryptorRef,
-                    bytes.baseAddress,
-                    current.count,
-                    &data,
-                    dataLength,
-                    nil
-                )
-
-                crypted.replaceSubrange(0..<(dataLength), with: data)
+            current.withUnsafeBytes { currentBytes in
+                crypted.withUnsafeMutableBytes { cryptedBytes in
+                    status = CCCryptorUpdate(
+                        cryptorRef,
+                        currentBytes.baseAddress,
+                        current.count,
+                        cryptedBytes.baseAddress,
+                        dataLength,
+                        nil
+                    )
+                }
             }
 
             if status != kCCSuccess {
