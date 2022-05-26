@@ -49,14 +49,20 @@ extension AESIGE {
 
             var crypted = Data(count: dataLength)
 
-            status = CCCryptorUpdate(
-                cryptorRef,
-                current.withUnsafeBytes { $0.baseAddress },
-                current.count,
-                crypted.withUnsafeMutableBytes { $0.baseAddress },
-                dataLength,
-                nil
-            )
+            current.withUnsafeBytes { bytes in
+                var data = [UInt8](repeating: 0, count: dataLength)
+
+                status = CCCryptorUpdate(
+                    cryptorRef,
+                    bytes.baseAddress,
+                    current.count,
+                    &data,
+                    dataLength,
+                    nil
+                )
+
+                crypted.replaceSubrange(0..<(dataLength), with: data)
+            }
 
             if status != kCCSuccess {
                 throw AESIGEError.decryptionError
