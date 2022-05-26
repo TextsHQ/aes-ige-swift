@@ -9,17 +9,30 @@ public final class AESIGE {
         self.key = key
         self.iv = iv
     }
+
+    private enum Operation {
+        case decrypt
+        case encrypt
+    }
 }
 
 extension AESIGE {
     public func decrypt(buffer: Data) throws -> Data {
+        try run(operation: .decrypt, buffer: buffer)
+    }
+
+    public func encrypt(buffer: Data) throws -> Data {
+        try run(operation: .encrypt, buffer: buffer)
+    }
+
+    private func run(operation: Operation, buffer: Data) throws -> Data {
         var cryptorRef: CCCryptorRef?
         var status: CCCryptorStatus = -1
 
         key.withUnsafeBytes { keyBytes in
             iv.withUnsafeBytes { ivBytes in
                 status = CCCryptorCreate(
-                    CCOperation(kCCDecrypt),
+                    CCOperation(operation == .decrypt ? kCCDecrypt : kCCEncrypt),
                     CCAlgorithm(kCCAlgorithmAES),
                     CCOptions(kCCOptionECBMode),
                     keyBytes.baseAddress,
@@ -36,8 +49,15 @@ extension AESIGE {
             throw AESIGEError.initializationError
         }
 
-        var top = iv.subdata(in: 16..<32)
-        var bottom = iv.subdata(in: 0..<16)
+        var top: Data
+        var bottom: Data
+        if operation == .decrypt {
+            top = iv.subdata(in: 16..<32)
+            bottom = iv.subdata(in: 0..<16)
+        } else {
+            top = iv.subdata(in: 0..<16)
+            bottom = iv.subdata(in: 16..<32)
+        }
 
         var result = Data(count: buffer.count)
         var current: Data
